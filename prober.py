@@ -1,8 +1,12 @@
+import contextlib
+import csv
 import dataclasses
+import datetime
 import functools
 import logging
 import os
 import time
+from collections.abc import Iterator
 from typing import Any
 
 import elasticsearch
@@ -16,12 +20,14 @@ API_URL: str = (os.getenv("ESPROBER_API_URL", "").strip() or "https://overview-e
 
 @dataclasses.dataclass
 class Query:
+    name: str
     path: str
     body: dict[str, Any]
 
 
-QUERIES: dict[str, Query] = {
-    "service.node.name-wildcard": Query(
+QUERIES: list[Query] = [
+    Query(
+        name="service.node.name-wildcard",
         path="serverless-metrics-*:apm-*,serverless-metrics-*:metrics-apm*",
         body={
             "query": {
@@ -33,7 +39,8 @@ QUERIES: dict[str, Query] = {
             }
         },
     ),
-    "service.node.name-term": Query(
+   Query(
+        name= "service.node.name-term",
         path="serverless-metrics-*:apm-*,serverless-metrics-*:metrics-apm*",
         body={
             "query": {
@@ -45,7 +52,8 @@ QUERIES: dict[str, Query] = {
             }
         }
     ),
-    "kubernetes.pod.name-wildcard": Query(
+    Query(
+        name="kubernetes.pod.name-wildcard",
         path="metrics-*,serverless-metrics-*:metrics-*",
         body={
             "query": {
@@ -57,7 +65,8 @@ QUERIES: dict[str, Query] = {
             }
         },
     ),
-    "kubernetes.pod.name-term": Query(
+    Query(
+        name="kubernetes.pod.name-term",
         path="metrics-*,serverless-metrics-*:metrics-*",
         body={
             "query": {
@@ -69,7 +78,7 @@ QUERIES: dict[str, Query] = {
             }
         },
     ),
-}
+]
 
 
 QUERY_INTERVAL: float = max(1., float(os.getenv("ESPROBER_QUERY_INTERVAL", "").strip() or 60.))
@@ -85,22 +94,58 @@ def main():
     if TEST_DURATION:
         test_deadline = time.monotonic() + TEST_DURATION
 
-    query_names = list(QUERIES)
     durations: dict[str, list[float]] = {}
-    for n in query_names:
-        durations[n] = []
+    for q in QUERIES:
+        durations[q.name] = []
 
-    # body = None
-    while not test_deadline or time.monotonic() < test_deadline:
-        for i in range(len(query_names)):
-            name = query_names[i % len(query_names)]
-            query = QUERIES[name]
+    with QueryResult.csv_writer() as writer:
+        while not test_deadline or time.monotonic() < test_deadline:
+            for query in QUERIES:
+                # Send a query to elastic search service
+                result = send_query(query)
+                # Write query results to CSV file
+                result.write_to(writer)
 
-            start_time = time.monotonic()
-            search(query)
-            durations[name].append(time.monotonic() - start_time)
-            LOG.info("Query '%s' average time: %f seconds", name, average(durations[name]))
-            time.sleep(QUERY_INTERVAL)
+                # Aggregate print query stats.
+                durations[query.name].append(result.duration)
+                LOG.info("Query '%s' average time: %f seconds", query.name, average(durations[query.name]))
+
+                # Give the service a fair break to reduce its charge
+                time.sleep(QUERY_INTERVAL)
+
+
+@dataclasses.dataclass
+class QueryResult:
+    timestamp: str
+    name: str
+    duration: float
+
+    @classmethod
+    @contextlib.contextmanager
+    def csv_writer(cls) -> Iterator[csv.writer]:
+        filename = os.path.join(os.path.dirname(__file__), "prober.csv")
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        write_header = os.path.isfile(filename)
+        with open(filename, "a", newline="") as csv_file:
+            csv_writer = csv.DictWriter(csv_file, fieldnames=["timestamp", "name", "duration"])
+            if write_header:
+                csv_writer.writeheader()
+            yield csv_writer
+            csv_file.flush()
+
+    def write_to(self, writer: csv.DictWriter) -> None:
+        writer.writerow(dataclasses.asdict(self))
+
+
+def send_query(query) -> QueryResult:
+    timestamp = datetime.datetime.strftime(
+        datetime.datetime.now(datetime.timezone.utc),
+        "%Y-%m-%dT%H:%M:%S.%f"
+    )[:-3]
+    start_time = time.monotonic()
+    search(query)
+    duration = time.monotonic() - start_time
+    return QueryResult(timestamp=timestamp, name=query.name, duration=duration)
 
 
 def average(durations: list[float]) -> float:
