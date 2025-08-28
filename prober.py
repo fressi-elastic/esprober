@@ -136,7 +136,7 @@ class QueryResult:
     def csv_writer(cls) -> Iterator[csv.writer]:
         filename = os.path.join(os.path.dirname(__file__), "prober.csv")
         os.makedirs(os.path.dirname(filename), exist_ok=True)
-        write_header = os.path.isfile(filename)
+        write_header = not os.path.isfile(filename)
         with open(filename, "a", newline="") as csv_file:
             csv_writer = DictWriter(csv_file, fieldnames=["timestamp", "name", "duration"])
             if write_header:
