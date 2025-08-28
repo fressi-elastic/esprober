@@ -114,6 +114,17 @@ def main():
                 time.sleep(QUERY_INTERVAL)
 
 
+class DictWriter(csv.DictWriter):
+
+    def __init__(self, f, fieldnames, *args, **kwargs):
+        super().__init__(f, fieldnames, *args, **kwargs)
+        self.flush = f.flush
+
+    def writerow(self, row):
+        super().writerow(row)
+        self.flush()
+
+
 @dataclasses.dataclass
 class QueryResult:
     timestamp: str
@@ -127,9 +138,10 @@ class QueryResult:
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         write_header = os.path.isfile(filename)
         with open(filename, "a", newline="") as csv_file:
-            csv_writer = csv.DictWriter(csv_file, fieldnames=["timestamp", "name", "duration"])
+            csv_writer = DictWriter(csv_file, fieldnames=["timestamp", "name", "duration"])
             if write_header:
                 csv_writer.writeheader()
+
             yield csv_writer
             csv_file.flush()
 
