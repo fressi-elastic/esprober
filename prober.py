@@ -102,14 +102,16 @@ def main():
         while not test_deadline or time.monotonic() < test_deadline:
             for query in QUERIES:
                 # Send a query to elastic search service
-                result = send_query(query)
-                # Write query results to CSV file
-                result.write_to(writer)
+                try:
+                    result = send_query(query)
+                    # Write query results to CSV file
+                    result.write_to(writer)
 
-                # Aggregate print query stats.
-                durations[query.name].append(result.duration)
-                LOG.info("Query '%s' average time: %f seconds", query.name, average(durations[query.name]))
-
+                    # Aggregate print query stats.
+                    durations[query.name].append(result.duration)
+                    LOG.info("Query '%s' average time: %f seconds", query.name, average(durations[query.name]))
+                except Exception as ex:
+                    LOG.exception("Query '%s' failed: %s", query.name, ex)
                 # Give the service a fair break to reduce its charge
                 time.sleep(QUERY_INTERVAL)
 
