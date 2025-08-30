@@ -208,7 +208,8 @@ __marimo__/
 
 
 # ES Prober
-prober.iml
+esprober.iml
 .venv
 .idea
-prober.csv
+esprober.csv
+esprober.log

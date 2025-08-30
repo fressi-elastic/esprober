@@ -17,6 +17,9 @@ LOG = logging.getLogger(__name__)
 API_KEY: str | None = os.getenv("ESPROBER_API_KEY", "").strip() or None
 API_URL: str = (os.getenv("ESPROBER_API_URL", "").strip() or "https://overview-elastic-cloud-com.es.us-east-1.aws.found.io:443").rstrip("/")
 
+CSV_FILENAME = os.path.expanduser(os.getenv("ESPROBER_CSV_FILENAME", "esprober.log"))
+LOG_FILENAME = os.path.expanduser(os.getenv("ESPROBER_LOG_FILENAME", "esprober.log"))
+
 
 @dataclasses.dataclass
 class Query:
@@ -87,8 +90,9 @@ REQUEST_TIMEOUT: float = max(1., float(os.getenv("ESPROBER_REQUEST_TIMEOUT", "")
 
 CLIENTS: dict[str, elasticsearch.Elasticsearch] = {}
 
+
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(filename=LOG_FILENAME, encoding='utf-8', level=logging.DEBUG)
 
     test_deadline: float | None = None
     if TEST_DURATION:
@@ -103,6 +107,7 @@ def main():
             for query in QUERIES:
                 # Send a query to elastic search service
                 try:
+                    LOG.info("Executing query '%s'...", query.name)
                     result = send_query(query)
                     # Write query results to CSV file
                     result.write_to(writer)
@@ -113,6 +118,7 @@ def main():
                 except Exception as ex:
                     LOG.exception("Query '%s' failed: %s", query.name, ex)
                 # Give the service a fair break to reduce its charge
+                LOG.debug("Sleeping %d seconds...", int(QUERY_INTERVAL))
                 time.sleep(QUERY_INTERVAL)
 
 
@@ -136,10 +142,11 @@ class QueryResult:
     @classmethod
     @contextlib.contextmanager
     def csv_writer(cls) -> Iterator[csv.writer]:
-        filename = os.path.join(os.path.dirname(__file__), "prober.csv")
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        write_header = not os.path.isfile(filename)
-        with open(filename, "a", newline="") as csv_file:
+        out_dir = os.path.dirname(CSV_FILENAME)
+        if out_dir and not os.path.isdir(out_dir):
+            os.makedirs(out_dir)
+        write_header = not os.path.isfile(CSV_FILENAME)
+        with open(CSV_FILENAME, "a", newline="") as csv_file:
             csv_writer = DictWriter(csv_file, fieldnames=["timestamp", "name", "duration"])
             if write_header:
                 csv_writer.writeheader()
@@ -170,11 +177,7 @@ def average(durations: list[float]) -> float:
 
 def search(query: Query) -> Any:
     url = f"{API_URL}/{query.path}".rstrip("/")
-    try:
-        return client(url).search(**query.body)
-    except elasticsearch.exceptions.ConnectionTimeout:
-        LOG.error("Connection to %s timed out", API_URL)
-        exit(1)
+    return client(url).search(**query.body)
 
 
 @functools.cache
