@@ -19,7 +19,7 @@ clean-venv:
 	rm -fR "$(venv_dir)"
 
 check-uv:
-	@uv --version || echo "Please install uv -> https://github.com/astral-sh/uv?tab=readme-ov-file#installation"
+	@echo '$(or $(shell uv --version), $(error "Please install uv https://github.com/astral-sh/uv?tab=readme-ov-file#installation"))'
 
 $(venv_python): check-uv
 	uv add --dev .
