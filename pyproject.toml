@@ -1,0 +1,33 @@
+[project]
+name = "esprober"
+version = "0.1.0"
+description = "A very simple prober script for testing queries latencies of ElasticSearch service."
+authors = [
+    {name = "Federico Ressi", email = "federico.ressi@elastic.co"},
+]
+readme = "README.md"
+license = "Apache-2.0"
+
+requires-python = ">= 3.10"
+dependencies = [
+    "elasticsearch<9.0.0",
+]
+
+[project.scripts]
+esprober = "esprober:main"
+
+[project.urls]
+Repository = "https://github.com/fressi-elastic/esprober.git"
+
+[tool.uv.workspace]
+members = [
+    ".",
+]
+
+[tool.uv.sources]
+esprober = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "esprober",
+]

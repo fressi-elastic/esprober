@@ -1,0 +1,54 @@
+[
+  {
+    "name": "service.node.name-wildcard",
+    "path": "serverless-metrics-*:apm-*,serverless-metrics-*:metrics-apm*",
+    "body": {
+      "query": {
+        "wildcard": {
+          "service.node.name": {
+            "value": "es-es-search*"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "service.node.name-term",
+    "path": "serverless-metrics-*:apm-*,serverless-metrics-*:metrics-apm*",
+    "body": {
+      "query": {
+        "term": {
+          "service.node.name": {
+            "value": "es-es-search-7c46b56686-sdtrl"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "kubernetes.pod.name-wildcard",
+    "path": "metrics-*,serverless-metrics-*:metrics-*",
+    "body": {
+      "query": {
+        "wildcard": {
+          "kubernetes.pod.name": {
+            "value": "es-*"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "kubernetes.pod.name-term",
+    "path": "metrics-*,serverless-metrics-*:metrics-*",
+    "body": {
+      "query": {
+        "term": {
+          "kubernetes.pod.name": {
+            "value": "es-es-index-564b5c6d45-7hldp"
+          }
+        }
+      }
+    }
+  }
+]
