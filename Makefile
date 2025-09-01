@@ -8,6 +8,8 @@ venv_sh = $(SHELL) -c ". $(venv_dir)/bin/activate; $(1)"
 
 all: venv
 
+.PHONY: venv run clean clean-venv
+
 clean: clean-venv
 
 venv: $(venv_python)
@@ -18,10 +20,6 @@ run: venv
 clean-venv:
 	rm -fR "$(venv_dir)"
 
-check-uv:
+$(venv_python):
 	@echo '$(or $(shell uv --version), $(error "Please install uv https://github.com/astral-sh/uv?tab=readme-ov-file#installation"))'
-
-$(venv_python): check-uv
 	uv add --dev .
-
-.PHONY: venv run clean clean-venv check-uv
