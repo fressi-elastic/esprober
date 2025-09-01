@@ -17,7 +17,7 @@ LOG = logging.getLogger(__name__)
 API_KEY: str | None = os.getenv("ESPROBER_API_KEY", "").strip() or None
 API_URL: str = (os.getenv("ESPROBER_API_URL", "").strip() or "https://overview-elastic-cloud-com.es.us-east-1.aws.found.io:443").rstrip("/")
 
-CSV_FILENAME = os.path.expanduser(os.getenv("ESPROBER_CSV_FILENAME", "esprober.log"))
+CSV_FILENAME = os.path.expanduser(os.getenv("ESPROBER_CSV_FILENAME", "esprober.csv"))
 LOG_FILENAME = os.path.expanduser(os.getenv("ESPROBER_LOG_FILENAME", "esprober.log"))
 
 
