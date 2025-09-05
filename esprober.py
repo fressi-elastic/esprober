@@ -66,8 +66,14 @@ def main(
     for q in queries:
         LOG.info("Query '%s' average time: %f seconds", q.name, average(durations[q.name]))
 
-    results = send_queries(queries=queries, durations=durations)
-    write_results(results_filename, results)
+    LOG.debug(f"Start sending queries...")
+    try:
+        results = send_queries(queries=queries, durations=durations)
+        write_results(results_filename, results)
+    finally:
+        LOG.debug(f"Terminated sending queries.")
+        for q in queries:
+            LOG.info("Query '%s' average time: %f seconds", q.name, average(durations[q.name]))
 
 
 def init_logging(filename: str = LOG_FILENAME) -> None:
@@ -81,9 +87,12 @@ def init_logging(filename: str = LOG_FILENAME) -> None:
 
 
 def load_queries(filename: str) -> list[Query]:
-    with open(filename) as f:
-        LOG.info("Loading queries from '%s'.", filename)
-        return [Query(**d) for d in json.load(f)]
+    LOG.debug("Loading queries from '%s'.", filename)
+    try:
+        with open(filename) as f:
+            return [Query(**d) for d in json.load(f)]
+    finally:
+        LOG.debug("Terminated loading queries from '%s'.", filename)
 
 
 def send_queries(
@@ -97,7 +106,7 @@ def send_queries(
 
     for query in queries:
         if test_deadline and time.monotonic() < test_deadline:
-            LOG.info("Test duration expired.", query.name)
+            LOG.warning("Test duration expired.", query.name)
             break
 
         LOG.info("Sending query '%s'...", query.name)
@@ -119,14 +128,17 @@ def send_queries(
 def read_results(filename) -> Iterator[QueryResult]:
     if not os.path.isfile(filename):
         return
-    with open(filename, "r", newline="") as csv_file:
-        LOG.info("Reading results from '%s'.", filename)
-        for row in csv.DictReader(csv_file):
-            yield QueryResult(
-                timestamp=row["timestamp"],
-                name=row["name"],
-                duration=float(row["duration"]),
-            )
+    LOG.debug("Reading results from '%s'.", filename)
+    try:
+        with open(filename, "r", newline="") as csv_file:
+            for row in csv.DictReader(csv_file):
+                yield QueryResult(
+                    timestamp=row["timestamp"],
+                    name=row["name"],
+                    duration=float(row["duration"]),
+                )
+    finally:
+        LOG.debug("Terminated reading results from '%s'.", filename)
 
 
 def write_results(filename: str, results: Iterable['QueryResult']) -> None:
@@ -134,14 +146,19 @@ def write_results(filename: str, results: Iterable['QueryResult']) -> None:
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir)
     write_header = not os.path.isfile(filename)
-    with open(filename, "a", newline="") as fd:
-        LOG.info("Writing results to '%s'.", filename)
-        writer = csv.DictWriter(fd, fieldnames=["timestamp", "name", "duration"])
-        if write_header:
-            writer.writeheader()
-        for r in results:
-            writer.writerow(dataclasses.asdict(r))
-            fd.flush()
+    LOG.debug("Start writing results to '%s'...", filename)
+    try:
+        with open(filename, "a", newline="") as fd:
+            writer = csv.DictWriter(fd, fieldnames=["timestamp", "name", "duration"])
+            if write_header:
+                LOG.debug("Writing header to '%s'...", filename)
+                writer.writeheader()
+            for r in results:
+                LOG.debug("Writing result to '%s' (result: %r)...", filename, r)
+                writer.writerow(dataclasses.asdict(r))
+                fd.flush()
+    finally:
+        LOG.debug("Terminated writing results to '%s'.", filename)
 
 
 def average(durations: list[float]) -> float:
