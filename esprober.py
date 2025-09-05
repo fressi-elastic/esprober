@@ -108,6 +108,7 @@ def send_queries(
         else:
             durations[query.name].append(result.duration)
             LOG.info("Query '%s' average time: %f seconds", query.name, average(durations[query.name]))
+            yield result
         finally:
             if interval > 0:
                 # Give the service a fair break to reduce its charge
