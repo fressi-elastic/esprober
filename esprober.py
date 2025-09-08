@@ -98,31 +98,33 @@ def load_queries(filename: str) -> list[Query]:
 def send_queries(
     queries: Iterable[Query],
     durations: dict[str, list[float]],
-    interval: float=QUERY_INTERVAL
+    interval: float = QUERY_INTERVAL,
+    test_duration: float | None = TEST_DURATION,
 ) -> Iterator[QueryResult]:
     test_deadline: float | None = None
-    if TEST_DURATION:
+    if test_duration is not None:
         test_deadline = time.monotonic() + TEST_DURATION
 
-    for query in queries:
-        if test_deadline and time.monotonic() < test_deadline:
-            LOG.warning("Test duration expired.", query.name)
-            break
+    while True:
+        for query in queries:
+            if test_deadline and time.monotonic() < test_deadline:
+                LOG.warning("Test duration expired.", query.name)
+                break
 
-        LOG.info("Sending query '%s'...", query.name)
-        try:
-            result = query.send()
-        except Exception as ex:
-            LOG.exception("Query '%s' failed: %s", query.name, ex)
-        else:
-            durations[query.name].append(result.duration)
-            LOG.info("Query '%s' average time: %f seconds", query.name, average(durations[query.name]))
-            yield result
-        finally:
-            if interval > 0:
-                # Give the service a fair break to reduce its charge
-                LOG.debug("Sleeping %d seconds...", int(QUERY_INTERVAL))
-                time.sleep(QUERY_INTERVAL)
+            LOG.info("Sending query '%s'...", query.name)
+            try:
+                result = query.send()
+            except Exception as ex:
+                LOG.exception("Query '%s' failed: %s", query.name, ex)
+            else:
+                durations[query.name].append(result.duration)
+                LOG.info("Query '%s' average time: %f seconds", query.name, average(durations[query.name]))
+                yield result
+            finally:
+                if interval > 0:
+                    # Give the service a fair break to reduce its charge
+                    LOG.debug("Sleeping %d seconds...", int(QUERY_INTERVAL))
+                    time.sleep(QUERY_INTERVAL)
 
 
 def read_results(filename) -> Iterator[QueryResult]:
